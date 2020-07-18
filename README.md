@@ -3,6 +3,7 @@ playing around with the MNIST dataset in this repo: implementing various classif
 Currently implemented:
   1) 3-layer FFNN
   2) k-NN
+
 To implement:
   3) Naive Bayes
   4) Discriminant Analysis
