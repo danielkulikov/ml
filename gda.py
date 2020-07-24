@@ -13,14 +13,22 @@ from sklearn.metrics import confusion_matrix
 class gda:
     """
     Implementation of GDA (gaussian discriminant analysis) from scratch - for practice.
-    -> 
+    -> if we want LDA we construct a single covariance matrix for all classes
+    -> if we want QDA we construct a covariance matrix for each class
+    -> if we want Gaussian Naive Bayes we have a diagonal covariance matrix (since
+    every feature is independent)
     """
-    def __init__(self, X, y, params):
+    def __init__(self, X, y, cov_type):
+        """
+        Arguments:
+        X: input data
+        y: input labels
+        params: 
+        """
         self.X = X
         self.y = y
         self.num_labels =np.max(self.y)+1
-        self.params = params
-        self.model = {}   
+        self.cov_type = cov_type
         
     def get_prior(self):
         """
@@ -29,7 +37,7 @@ class gda:
         _, counts = np.unique(self.y, return_counts=True)
         return counts/len(self.y)
     
-    def compute_gaussian_pdf(self, x, means, sigmas):
+    def compute_gaussian_pdf_qda(self, x, means, sigmas):
         """
         Computes the conditional probabilities of each data-point for each class
         Returns a numpy array of shape (n, f)
@@ -44,10 +52,16 @@ class gda:
             exponent = (-0.5 * ((diff @ inv) * diff)).sum(axis=1).flatten()
             probs[:, l] =  np.exp(exponent)
         return probs
+    
+    def compute_gaussian_pdf_lda(self, x, means, sigmas):
+        pass
+        
+    def compute_gaussian_pdf_nb(self, x, means, sigmas):
+        pass
 
-    def compute_means_and_sigmas(self):
+    def compute_means_and_sigmas_qda(self):
         """
-        Computes the means of each class.
+        Computes the mean and distinct covariance matrix of each class for QDA.
         Returns a numpy array of shape (k, f) and a numpy array of shape (k, f, f)
         """
         # set up variable
@@ -64,6 +78,20 @@ class gda:
             sigmas[l, :, :] = sigma
         self.mus = mus
         self.sigmas = sigmas
+        
+    def compute_means_and_sigmas_lda(self):
+        """
+        Computes the means of each class and shared covariance matrix for LDA.
+        Returns a numpy array of shape (k, f) and a numpy array of shape (k, f, f)
+        """
+        pass
+        
+    def compute_means_and_sigmas_nb(self):
+        """
+        Computes the means and diagonal covariance matrix for Gaussian Naive Bayes.
+        Returns a numpy array of shape (k, f) and a numpy array of shape (k, f, f)
+        """
+        pass
     
     def cov(self, x, mu):
         """
@@ -143,7 +171,7 @@ if __name__=="__main__":
     y_test = y_new[1500:]
     y_test_temp = y_test
     
-    nb = naive_bayes(X_train, y_train,  {"dist": "Gaussian"})
+    nb = naive_bayes(X_train, y_train, "distinct")
     nb.evaluate_model(X_test, y_test)
     
     
