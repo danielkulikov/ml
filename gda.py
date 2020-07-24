@@ -23,20 +23,29 @@ class gda:
         Arguments:
         X: input data
         y: input labels
-        params: 
+        cov_type: either 
+                  1) "distinct" for QDA
+                  2) "shared" for LDA 
+                  3) "diagonal" for GNB
         """
         self.X = X
         self.y = y
-        self.num_labels =np.max(self.y)+1
+        self.num_labels = np.max(self.y)+1
         self.cov_type = cov_type
         
-    def get_prior(self):
+    def get_priors(self):
         """
-        Get label_count/total_count as our prior for each class. 
+        Get label_count/total_count as our oror for each class. 
         """
         _, counts = np.unique(self.y, return_counts=True)
         return counts/len(self.y)
     
+    def compute_gaussian_pdf(self, x, means, sigmas):
+        if(self.cov_type == "distinct"):
+            return self.compute_gaussian_pdf_qda(x, means, sigmas)
+        if(self.cov_type == "shared" or self.cov_type == "diagonal"):
+            return self.compute_gaussian_pdf_shared(x, means, sigmas)
+        
     def compute_gaussian_pdf_qda(self, x, means, sigmas):
         """
         Computes the conditional probabilities of each data-point for each class
@@ -53,12 +62,34 @@ class gda:
             probs[:, l] =  np.exp(exponent)
         return probs
     
-    def compute_gaussian_pdf_lda(self, x, means, sigmas):
-        pass
+    def compute_gaussian_pdf_shared(self, x, means, sigma):
+        """
+        Computes the conditional probabilities of each data-point for each class for LDA.
+        Returns a numpy array of shape (n, f)
+        """
+        probs = np.zeros((x.shape[0], self.num_labels))
+        constant = np.power((2*np.pi), self.X.shape[1]/2)
+        # for each class we compute our conditional probability
+        for l in range(self.num_labels):
+            const = np.divide(1, np.multiply(constant, np.power(np.linalg.det(sigma), 1/2)))
+            diff = np.subtract(x, means[l])
+            inv = np.linalg.inv(sigma)
+            exponent = (-0.5 * ((diff @ inv) * diff)).sum(axis=1).flatten()
+            probs[:, l] =  np.exp(exponent)
+        return probs
         
-    def compute_gaussian_pdf_nb(self, x, means, sigmas):
-        pass
-
+    def compute_means_and_sigmas(self):
+        """
+        Computes the mean vector + covariance matrix for this discriminant
+        analysis classifier.
+        """
+        if(self.cov_type == "distinct"):
+            self.compute_means_and_sigmas_qda()
+        if(self.cov_type == "shared"):
+            self.compute_means_and_sigmas_lda()
+        if(self.cov_type == "diagonal"):
+            self.compute_means_and_sigmas_nb()
+            
     def compute_means_and_sigmas_qda(self):
         """
         Computes the mean and distinct covariance matrix of each class for QDA.
@@ -84,14 +115,35 @@ class gda:
         Computes the means of each class and shared covariance matrix for LDA.
         Returns a numpy array of shape (k, f) and a numpy array of shape (k, f, f)
         """
-        pass
-        
+        # set up variable
+        mus = np.zeros((self.num_labels, self.X.shape[1]))
+        sigmas = np.zeros((self.num_labels, self.X.shape[1], self.X.shape[1]))
+        # for each label l
+        for l in range(self.num_labels):
+            # get all rows with l
+            rows = self.X[self.y==l]
+            # compute the mean
+            mean = np.mean(rows, axis=0)
+            mus[l, :] = mean
+        self.mus = mus
+        self.sigmas = self.cov(self.X, np.mean(self.mus, axis=0))
+    
     def compute_means_and_sigmas_nb(self):
         """
         Computes the means and diagonal covariance matrix for Gaussian Naive Bayes.
         Returns a numpy array of shape (k, f) and a numpy array of shape (k, f, f)
         """
-        pass
+        mus = np.zeros((self.num_labels, self.X.shape[1]))
+        sigmas = np.zeros((self.num_labels, self.X.shape[1], self.X.shape[1]))
+        # for each label l
+        for l in range(self.num_labels):
+            # get all rows with l
+            rows = self.X[self.y==l]
+            # compute the mean
+            mean = np.mean(rows, axis=0)
+            mus[l, :] = mean
+        self.mus = mus
+        self.sigmas = self.cov_nb(self.X)
     
     def cov(self, x, mu):
         """
@@ -100,6 +152,13 @@ class gda:
         diff = X - mu
         cov = np.dot(diff.T, diff) / X.shape[0]
         return cov + np.eye(X.shape[1]) * 0.001
+        
+    def cov_nb(self, x):
+        """
+        Returns a diagonal covariance matrix of shape (f,f) for the data points of class l.
+        """
+        cov = np.diag(np.var(x, axis=0))
+        return cov + np.eye(X.shape[1]) * 0.001
 
     def predict_set(self, test_x):
         """
@@ -107,7 +166,7 @@ class gda:
         return the argmax for each test datapoint x_i. 
         """
         # get prior for each class
-        priors = self.get_prior()
+        priors = self.get_priors()
         # get mean and covariance matrix for each class
         self.compute_means_and_sigmas()
         # use bayes rule to compute the probabilities
@@ -131,8 +190,10 @@ class gda:
         # get performance of test set
         test_preds = self.predict_set(test_x)
         test_count = sum(test_y == test_preds)
-        test_acc = test_count/self.X.shape[0]
+        test_acc = test_count/test_x.shape[0]
         print(test_acc)
+        
+     
         
 def mean(x): 
     """
@@ -171,9 +232,14 @@ if __name__=="__main__":
     y_test = y_new[1500:]
     y_test_temp = y_test
     
-    nb = naive_bayes(X_train, y_train, "distinct")
+    nb = gda(X_train, y_train, "diagonal")
     nb.evaluate_model(X_test, y_test)
     
+    #nb = naive_bayes(X_train, y_train, "shared")
+    #nb.evaluate_model(X_test, y_test)
+    
+    #nb = naive_bayes(X_train, y_train, "diagonal")
+    #nb.evaluate_model(X_test, y_test)
     
     
     
