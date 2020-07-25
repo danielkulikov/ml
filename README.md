@@ -4,11 +4,11 @@ Currently implemented:
   1) 3-layer FFNN
   2) k-NN
   3) Gaussian discriminant analysis (with three variants: QDA, LDA or Gaussian Naive Bayes - this all depends on what form we choose the covariance matrix to take)
+  4) k-means
   
 To implement:
-  4) Linear Regression
-  5) Logistic Regression
-  6) K-means
+  5) Linear Regression
+  6) Logistic Regression
   7) PCA 
   8) Decision trees
   
